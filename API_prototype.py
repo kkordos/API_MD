@@ -1,9 +1,5 @@
 # -*- coding: utf-8 -*-
-"""
-Created on Tue Jun  1 13:24:45 2021
 
-@author: Kostis
-"""
 
 #import mupif as mp
 import os
@@ -54,6 +50,8 @@ grainName = hostgrain.getIdentity().getMaterial()
  
 # Input generation for replace.py
 pdblines = []
+
+# read pdb ----------------------------------------------
 for im,m in enumerate(hostgrain.getMolecules()):
   for ia,a in enumerate(hostgrain.getAtoms()):
      
@@ -70,84 +68,57 @@ write_pdbfile(pdblines, grainName)
 # This function generates an xsc file needed for replace.py 
 write_xscfile(grainCell, '{}'.format(grainName))  
 
-#- Mol2 file ?
 
-parmchk2 < .mol2 > .frcmod
-
-1mol: in.tleap ( .frcmod, .mol2, leaprc.gaff )
-1molbulk: in.tleap ( 1.frcmod, 1.mol2, bulk.pdb, leaprc.gaff )  
-2molbulk: in.tleap ( 1.frcmod, 2.frcmod, 1.mol2, 2.mol2, mix.pdb, leaprc.gaff )
-
-tleap -f in.tleap > .prmtop 
-
-namd < namd.in
-
-
-
-
-
-
-
-
-
-
+# read mol2 files -------------------------------------------------
+for im,m in enumerate(hostgrain.getMolecules()):
+  for ia,a in enumerate(hostgrain.getAtoms()):
+     
+     atype  = a.getTopology().getType()
+     atname = a.getTopology().getName()
+     atpos  = a.getTopology().getPosition()
+     
+     pc= a.getProperties().getPartialCharge()
+     
+     bond     = a.getProperties().getbond()
+     bondType = a.getProperties().getbondType()   
+         
+     ATOMSmol2line = write_mol2line(ia, atname, atpos, atype, im, pc ) 
+     ATOMSmol2lines.append(mol2line+'\n')
+     write_mol2file(ATOMSmol2lines, grainName)
+     BONDSmol2line = write_mol2line(ia, bond, bondType )
+     BONDSmol2lines.append(BONDSmol2line+'\n')
 
 
 
+# run tleap ---------------------------------------     
+    tleaplines.append('source leaprc.gaff')
+ 
+  for im,m in enumerate (hostgrain.getMolecules()):
+    frcmod = m.getProperties().getFrcmod()
+    mol2   = m.getIdentity().getMol2()
+    
+    tleapline = write_tleapline(frcmod, mol2)
+    tleaplines.append(tleapline+'\n')
+    
+    tleaplines.append('bulk = loadPdb mix.pdb')
+
+    os.system('tleap -f in.tleap') # > .prmtop 
+
+
+# run namd ---------------------------------------------
+    TEMP=%temp
+    NUMSTEPS=%num
+    MARGIN=%margin 
+    
+    
+    namdlines.append('extendedSystem XSC')
+    namdlines.append('parmfile PRMTOP')
+    namdlines.append('coordinates mix.pdb')
+
+    os.system ("charmrun +pN namd2 in.namd > out.namd")
 
 
 
-
-
-
-
-
-
-
-
-
-# These are completely arbitrary. Just relying on Model1 and Model2 of Example11 
-# to give you an idea of the sequence of services to create the necessary inputs for models 
-  
-# Here the dopant molecule must be loaded from database 
-self.moleculeState = mp.heavydata.HeavyDataHandle(id=mp.dataid.MiscID.ID_MoleculeState) # we need a specification of which dopant Molecule
-dopantmol = self.moleculeState.getData(mode='create',schemaName='molecule',schemasJson=mp.heavydata.sampleSchemas_json)
-
-dopantmolName = dopantmol.getIdentity().getChemicalName()
-
-pdblines = [] 
-for ia,a in enumerate(dopantmol.getAtoms()):
-  
-  datype  = a.getTopology().getType()
-  datname = a.getTopology().getName()
-  datpos  = a.getTopology().getPosition()
-  
-  # this is the standard pdb format for generating the dopant input file
-  pdbline = write_pdbline(ia, atname, 1, atpos)
-  pdblines.append(pdbline+'\n')
-  
-write_pdbfile(pdblines, dopantmolName)
-
-# *********************** up to this point code creates 2 pdb files and an xsc file *****************
-
-#################### this must be part of the workflow ###################
-
-while True:
-   
-  os.system('python3 replace.py > xx') #  <---- Specify the output of the program here
-  os.system('python3 validate.py > yy') # <---- Specify the output of the program here
-  
-  # Assuming that validate.py returns True/False
-  with open('yy', 'r') as valout:
-    valout = valout.readline()
-  
-  if valout[0] == True:
-    break
-##########################################################################
-
-# ************************** SET NEW GRAIN HERE ***************************
-
-  
   
   
   
