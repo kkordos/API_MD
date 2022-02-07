@@ -23,13 +23,14 @@ def write_pdbfile(boxlines, filename):
   
   return None
 
-def write_pdbline(indexatom, atomname, indexmolecule, atomcoords):
+
+def write_pdbline(indexatom, atomname, indexmolecule, atomcoords, resname):
   
   # this is the standard pdb format for generating the host input file
   # https://cupnet.net/pdb-format/
   atx, aty, atz = atpos[0], atpos[1], atpos[2]
   
-  line = "{:6s}{:5d} {:^4s}{:1s}{:3s} {:1s}{:4d}{:1s}   {:8.3f}{:8.3f}{:8.3f}{:6.2f}{:6.2f}          {:>2s}{:2s}".format('ATOM', ia+1, atname, ' ', 'MOL', ' ', im+1, ' ', atx,aty,atz, 1.00, 0.00, ' ', ' ')
+  line = "{:6s}{:5d} {:^4s}{:1s}{:3s} {:1s}{:4d}{:1s}   {:8.3f}{:8.3f}{:8.3f}{:6.2f}{:6.2f}          {:>2s}{:2s}".format('ATOM', indexatom+1, atomname, ' ', resname , ' ', indexmolecule+1, ' ', atx,aty,atz, 1.00, 0.00, ' ', ' ')
   
   return line
 
@@ -45,11 +46,11 @@ def write_tleapfile(lines)
             
     return None
 
-def write_tleapline(frcmod, mol2):
-    line='loadamberparams', frcmod, '\n MOL=',mol2
-    
+def write_tleapline(frcmod, mol2, resname):
+    line1='loadamberparams', frcmod
+    line2= resname '= loadMol2', mol2
     return line 
-    
+   
 
 grainState = mp.heavydata.HeavyDataHandle(id=mp.dataid.MiscID.ID_GrainState) # we need a specification of which host grain
 #hostgrain = grainState.getData(mode='create',schemaName='grain',schemasJson=mp.heavydata.sampleSchemas_json)
@@ -61,6 +62,7 @@ grainName = hostgrain.getIdentity().getMaterial()
 # Input generation
 pdblines = []
 
+
 # create pdb from GRAIN ----------------------------------------------
 for indexmolecule,molecule in enumerate(hostgrain.getMolecules()):
   for indexatom,atom in enumerate(hostgrain.getAtoms()):
@@ -69,7 +71,9 @@ for indexmolecule,molecule in enumerate(hostgrain.getMolecules()):
      atomname    = atom.getStructure().getName()
      atomcoords  = atom.getStructure().getPosition()
      
-     pdbline = write_pdbline(indexatom, atomname, indexmolecule, atomcoords) # generates one single line in pdbfile
+     resname = molecule.getProperties().getResname() # we need this service !!!! The resname is up to 3 characters
+     
+     pdbline = write_pdbline(indexatom, atomname, indexmolecule, atomcoords, resname) # generates one single line in pdbfile
      pdblines.append(pdbline+'\n')
 
 # This function generates a pdb file    
@@ -87,12 +91,14 @@ for indexmolecule,molecule in enumerate(hostgrain.getMolecules()):
      atomname    = atom.getStructure().getName()
      atomcoords  = atom.getStructure().getPosition()
      
+     resname = molecule.getProperties().getresname()
+     
      partialcharge  = atom.getProperties().getPartialCharge()
      
      bond     = atom.getProperties().getbond()
      bondType = atom.getProperties().getbondType()   
          
-     ATOMSmol2line = write_mol2line(indexatom, atomname, atomcoords, atomtype, indexmolecule, partialcharge ) 
+     ATOMSmol2line = write_mol2line(indexatom, atomname, atomcoords, atomtype, indexmolecule, partialcharge, resname ) 
      ATOMSmol2lines.append(mol2line+'\n')
      
      write_mol2file(ATOMSmol2lines, grainName)
